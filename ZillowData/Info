@@ -1,0 +1,3 @@
+Zillow Data is stored in folders labelled by the day of data collection
+
+Each .csv file contains the listings of all houses in the area under that zipcode
