@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import requests
 import itertools
+import certifi
 import csv
 import time
 
@@ -27,11 +28,11 @@ def RotateProxy(url, proxies): # Rotate proxies to avoid being blocked by Zillow
     }
         proxy = next(proxies)
         formattedProxy = {
-            'http': f'sock5://{proxy}',
-            'https': f'sock5://{proxy}'
+            'http': f'socks5://{proxy}',
+            'https': f'socks5://{proxy}'
         }
         try:
-            response = requests.get(url, headers=headers, proxies=formattedProxy)
+            response = requests.get(url, headers=headers, proxies=formattedProxy, verify=certifi.where(), timeout=3)
             return response
         
         except requests.exceptions.RequestException as e:
@@ -45,24 +46,10 @@ def ScrapeAgentURLS(zipcode, pageNumber, agentsList, proxies): # Scrape agents f
     AGENT_URL = 'https://www.zillow.com/professionals/real-estate-agent-reviews/' + str(zipcode) + '/?page=' + str(page)
     print(AGENT_URL)
 
-    headers={ # Masks the request as a browser to avoid block from Zillow
-        "accept-language": "en-US,en;q=0.9",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "accept-language": "en-US;en;q=0.9",
-        "accept-encoding": "gzip, deflate, br",
-    }
-
-    response = requests.get(AGENT_URL, headers=headers)
+    response = RotateProxy(AGENT_URL, proxies)
     
     # Create a BeautifulSoup object
     soup = BeautifulSoup(response.text, 'html.parser')
-
-    if response.status_code != 200:
-        print('Failed to load page: Status Code ' + str(response.status_code))
-        if response.status_code == 403:
-            print('Forbidden')
-        return
 
     layer1 = soup.find('div', class_="StyledLoadingMask-c11n-8-99-1__sc-1h8a6se-0 kKPGlw PageContent__BlockLoadingMask-sc-wiuawc-0 ezHpAR")
     layer2 = layer1.find('div', class_="StyledLoadingMaskContent-c11n-8-99-1__sc-1brcmz6-0")
@@ -89,24 +76,10 @@ def ScrapeAgentData(agentURL, proxies):
     AGENT_URL = 'https://www.zillow.com' + agentURL
     print(AGENT_URL)
 
-    headers={ # Masks the request as a browser to avoid block from Zillow
-        "accept-language": "en-US,en;q=0.9",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
-        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "accept-language": "en-US;en;q=0.9",
-        "accept-encoding": "gzip, deflate, br",
-    }
-
-    response = requests.get(AGENT_URL, headers=headers)
+    response = RotateProxy(AGENT_URL, proxies)
     
     # Create a BeautifulSoup object
     soup = BeautifulSoup(response.text, 'html.parser')
-
-    if response.status_code != 200:
-        print('Failed to load page: Status Code ' + str(response.status_code))
-        if response.status_code == 403:
-            print('Forbidden')
-        return
 
     # Retrieve agent data; Name, Phone, Email, Address
     AGENT_NAME = soup.find('h1', class_='Text-c11n-8-96-2__sc-aiai24-0 StyledHeading-c11n-8-96-2__sc-s7fcif-0 AVvvq').text
@@ -120,7 +93,7 @@ def ScrapeAgentData(agentURL, proxies):
 def main():
 
     proxies = GetProxies()
-    ScrapeAgentData('/profile/John-DeMarco/')
+    ScrapeAgentData('/profile/John-DeMarco/', proxies)
     
     """    
     zipcodes = [32907,
