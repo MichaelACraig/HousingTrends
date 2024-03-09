@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import requests
 import itertools
+import random
 import certifi
 import csv
 import time
@@ -9,35 +10,95 @@ import time
 """
 Notes:
 - Zillow has a CAPTCHA that needs to be bypassed after a certain amount of requests
-
+- RotateProxy function is slow after first pass; Need to speed up later by labelling each proxy as HTTPS or SOCKS5. Not really a big deal tho so fix later.
 
 """
+def RotateHeaders(): # Rotate headers to avoid being blocked by Zillow
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Safari/605.1.15",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (iPad; CPU OS 15_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.2 Mobile/15E148 Safari/604.1",
+        "Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Mobile Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 Edg/96.0.1054.62",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 YaBrowser/22.1.4.84 Yowser/2.5 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36 OPR/82.0.4227.56",
+    ]
+
+    # Randomly select a user agent
+    random_user_agent = random.choice(user_agents)
+
+    return random_user_agent
+
 def GetProxies():
-    with open('http_socks5_socks4_proxies.txt', 'r') as f:
+    with open('working_proxies.txt', 'r') as f:
         proxies = f.read().splitlines()
     return itertools.cycle(proxies)
 
 def RotateProxy(url, proxies): # Rotate proxies to avoid being blocked by Zillow
         
+        if url.startswith('/'): # Probably redundant, but just in case
+            url = 'https://www.zillow.com' + url
+
         headers={ # Masks the request as a browser to avoid block from Zillow
         "accept-language": "en-US,en;q=0.9",
-        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
+        "user-agent": RotateHeaders(),
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
         "accept-language": "en-US;en;q=0.9",
         "accept-encoding": "gzip, deflate, br",
     }
         proxy = next(proxies)
-        formattedProxy = {
+
+        formattedProxySOCKS5 = {
             'http': f'socks5://{proxy}',
             'https': f'socks5://{proxy}'
         }
-        try:
-            response = requests.get(url, headers=headers, proxies=formattedProxy, verify=certifi.where(), timeout=3)
-            return response
-        
-        except requests.exceptions.RequestException as e:
-            print(f'Error with proxy {proxy}: {e}')
-            return RotateProxy(url, proxies)
+        formattedProxyHTTPS = {
+        'http': f'http://{proxy}',
+        'https': f'https://{proxy}'
+    }
+
+        for proxy in proxies:
+            try: # Try proxy as a SOCKS5 Input
+                responseSOCKS5 = requests.get(url, headers=headers, proxies=formattedProxySOCKS5, verify=certifi.where(), timeout=10)
+
+                if responseSOCKS5.status_code == 403: # If blocked, rotate proxy
+                    with open('working_proxies.txt', 'a') as f:
+                        f.write(proxy + '\n')
+
+                    return RotateProxy(url, proxies)
+                
+                # Create a new text file with working proxies
+                with open('working_proxies.txt', 'a') as f:
+                    f.write(proxy + '\n')
+
+                return responseSOCKS5
+            
+            except requests.exceptions.RequestException as e:
+                print(f'Error with SOCKS5 proxy {proxy}: {e}\n Trying HTTPS...')
+
+                try: # If SOCKS5 fails, try HTTPS
+                    responseHTTPS = requests.get(url, headers=headers, proxies=formattedProxyHTTPS, verify=certifi.where(), timeout=10)
+
+                    if responseHTTPS.status_code == 403: # If blocked, rotate proxy
+                        with open('working_proxies.txt', 'a') as f:
+                            f.write(proxy + '\n')
+
+                        return RotateProxy(url, proxies)
+                    
+                    # Create a new text file with working proxies
+                    with open('working_proxies.txt', 'a') as f:
+                        f.write(proxy + '\n')
+
+                    return responseHTTPS
+                
+                except requests.exceptions.RequestException as e:
+                    print(f'Error with HTTPS proxy {proxy}: {e}')
+                    return RotateProxy(url, proxies)
 
 def ScrapeAgentURLS(zipcode, pageNumber, agentsList, proxies): # Scrape agents from Zillow in a given zipcode; Outputs a .csv file that checks for duplicates
     page = pageNumber
@@ -74,13 +135,12 @@ def ScrapeAgentURLS(zipcode, pageNumber, agentsList, proxies): # Scrape agents f
 def ScrapeAgentData(agentURL, proxies):
     # Access the Zillow website
     AGENT_URL = 'https://www.zillow.com' + agentURL
-    print(AGENT_URL)
 
     response = RotateProxy(AGENT_URL, proxies)
     
     # Create a BeautifulSoup object
     soup = BeautifulSoup(response.text, 'html.parser')
-
+    print(soup.prettify())
     # Retrieve agent data; Name, Phone, Email, Address
     AGENT_NAME = soup.find('h1', class_='Text-c11n-8-96-2__sc-aiai24-0 StyledHeading-c11n-8-96-2__sc-s7fcif-0 AVvvq').text
     AGENT_COMPANY = soup.find('div', class_='Text-c11n-8-96-2__sc-aiai24-0 kEiIUx').text
