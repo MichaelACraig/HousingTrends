@@ -1,15 +1,19 @@
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
 import requests
 import itertools
 import random
 import certifi
-import csv
 import time
 
 """
 Notes:
-- Zillow has a CAPTCHA that needs to be bypassed after a certain amount of requests
+- CAPTCHA Button says not found through BeautifulSoup
+    - When we read a valid proxy and that proxy says it's blocked, we need to answer the CAPTCHA with Selenium dynamically
+    - Modify the SolveCaptcha function to dynamically open the CAPTCHA and solve it; Needs the working proxy to be passed to it.
+    - Currently, the response being passed in is a blank html page, we need to fix that to pass the actual page source
 - RotateProxy function is slow after first pass; Need to speed up later by labelling each proxy as HTTPS or SOCKS5. Not really a big deal tho so fix later.
 
 """
@@ -39,6 +43,31 @@ def GetProxies():
         proxies = f.read().splitlines()
     return itertools.cycle(proxies)
 
+def WriteProxy(proxy):
+    with open('working_proxies.txt', 'a') as f:
+        f.write(proxy + '\n')
+
+def SolveProxy(driver, response):
+    print('Proxy Passed: Trying CAPTCHA...')
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    time.sleep(20) # Debug purposes, see what the html being loaded in is
+
+    captcha_button = soup.find('div', class_='px-captcha-error-button')
+
+    if captcha_button: # CAPTCHA button is found
+        print("CAPTCHA Button Found!")
+        action = ActionChains(driver)
+        action.click_and_hold(captcha_button).perform()
+        time.sleep(10) # Time adjusted to hold down the captcha button
+        action.release().perform()
+
+        return driver.page_source
+
+    else: # No CAPTCHA button found; Return the page source
+        print('CAPTCHA Button Not Found!')
+        return response    
+
 def RotateProxy(url, proxies): # Rotate proxies to avoid being blocked by Zillow
         
         if url.startswith('/'): # Probably redundant, but just in case
@@ -66,17 +95,13 @@ def RotateProxy(url, proxies): # Rotate proxies to avoid being blocked by Zillow
             try: # Try proxy as a SOCKS5 Input
                 responseSOCKS5 = requests.get(url, headers=headers, proxies=formattedProxySOCKS5, verify=certifi.where(), timeout=10)
 
-                if responseSOCKS5.status_code == 403: # If blocked, rotate proxy
-                    with open('working_proxies.txt', 'a') as f:
-                        f.write(proxy + '\n')
+                if responseSOCKS5.status_code == 403: # Forbidden; Blocked by Zillow, answer the CAPTCHA
+                    driver = webdriver.Chrome()
+                    return SolveProxy(driver, responseSOCKS5)
 
-                    return RotateProxy(url, proxies)
-                
-                # Create a new text file with working proxies
-                with open('working_proxies.txt', 'a') as f:
-                    f.write(proxy + '\n')
+                time.sleep(random.uniform(1, 5)) # Adjust random time for each request to avoid bot detection
 
-                return responseSOCKS5
+                return responseSOCKS5 # If response is successful, return the response
             
             except requests.exceptions.RequestException as e:
                 print(f'Error with SOCKS5 proxy {proxy}: {e}\n Trying HTTPS...')
@@ -84,17 +109,13 @@ def RotateProxy(url, proxies): # Rotate proxies to avoid being blocked by Zillow
                 try: # If SOCKS5 fails, try HTTPS
                     responseHTTPS = requests.get(url, headers=headers, proxies=formattedProxyHTTPS, verify=certifi.where(), timeout=10)
 
-                    if responseHTTPS.status_code == 403: # If blocked, rotate proxy
-                        with open('working_proxies.txt', 'a') as f:
-                            f.write(proxy + '\n')
+                    if responseHTTPS.status_code == 403: # Forbidden, Proxy passed but blocked by Zillow, answer the CAPTCHA
+                        driver = webdriver.Chrome()
+                        return SolveProxy(driver, responseHTTPS)
 
-                        return RotateProxy(url, proxies)
-                    
-                    # Create a new text file with working proxies
-                    with open('working_proxies.txt', 'a') as f:
-                        f.write(proxy + '\n')
+                    time.sleep(random.uniform(1, 5)) # Adjust random time for each request to avoid bot detection
 
-                    return responseHTTPS
+                    return responseHTTPS # If response is successful, return the response
                 
                 except requests.exceptions.RequestException as e:
                     print(f'Error with HTTPS proxy {proxy}: {e}')
@@ -140,7 +161,8 @@ def ScrapeAgentData(agentURL, proxies):
     
     # Create a BeautifulSoup object
     soup = BeautifulSoup(response.text, 'html.parser')
-    print(soup.prettify())
+    print(soup)
+
     # Retrieve agent data; Name, Phone, Email, Address
     AGENT_NAME = soup.find('h1', class_='Text-c11n-8-96-2__sc-aiai24-0 StyledHeading-c11n-8-96-2__sc-s7fcif-0 AVvvq').text
     AGENT_COMPANY = soup.find('div', class_='Text-c11n-8-96-2__sc-aiai24-0 kEiIUx').text
@@ -151,8 +173,8 @@ def ScrapeAgentData(agentURL, proxies):
 
 # Main
 def main():
-
     proxies = GetProxies()
+
     ScrapeAgentData('/profile/John-DeMarco/', proxies)
     
     """    

@@ -17,7 +17,6 @@ client = httpx.AsyncClient(
     },
 )
 
-
 async def scrape_properties(urls: List[str]):
     """scrape zillow property pages for property data"""
     to_scrape = [client.get(url) for url in urls]
