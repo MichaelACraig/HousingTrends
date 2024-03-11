@@ -29,8 +29,7 @@ def RotateHeaders(): # Rotate Headers
         "accept-language": "en-US,en;q=0.9",
         "user-agent": random_user_agent,
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-        "accept-language": "en-US;en;q=0.9",
-        "accept-encoding": "gzip, deflate, br",
+        "accept-encoding": "gzip, deflate, br"
     }
 
     return headers
@@ -52,16 +51,13 @@ def RotateUserAgent(): # Rotates through User Agents by swapping proxies and hea
 
     return proxy, headers
 
-def SolveCaptcha(): # Function to solve captcha
-    pass
-
 async def TestProxies(URL_LINK): #Queues up proxy to be used in main() function. Runs along side main()
     while True:
         proxy = GetRandomProxy()
-        proxy = f'socks5://{proxy}'
+        proxy_URL = f'socks5://{proxy}'
 
         try:
-            async with httpx.AsyncClient(proxies = {"http://": proxy, "https://": proxy}) as client:
+            async with httpx.AsyncClient(proxies = {"http://": proxy_URL, "https://": proxy_URL}) as client:
                 r = await client.get(URL_LINK)
                 if r.status_code == 200 or r.status_code == 403:
                     WriteProxy(proxy)
@@ -84,15 +80,31 @@ async def main(URL_LINK, proxy, headers): # Main function to run the scraper, wi
         await url.setExtraHTTPHeaders(headers)
         await url.goto(URL_LINK)
 
-        print("Success with SOCKS5 Proxy/Header Combo")
-        SolveCaptcha() # Function to solve captcha
+        # Check if the page is accessible or not
+        if "blocked" in await url.content() or url.status == 403:
+            print("Blocked by Zillow. Trying again with new headers...")
+            headers_new = RotateHeaders()
+            await browser.close()
+            await main(URL_LINK, headers_new)
+        else:
+            print("Success accessing the URL.")
+        
+        # CAPTCHA CHECK HERE; hold the button for x seconds, if page doesn't update, refresh and try again, if page closes, reopen and try again 
+        # If page randomly closes, reopen and try again
+        # Refresh Page
+        # Hold Button down for x seconds
+        # If page doesn't update, refresh and try to hold down button again
+        # if CAPTCHA is successful, move to next step
 
     except Exception as e:
-        print(f'Error in main(): {e}')
-        proxy_new, headers_new = RotateUserAgent() # Retry the process with a new user agent
-        await browser.close()
-        print("Retrying with new Proxy and Headers")
-        await main(URL_LINK, proxy_new, headers_new)
+        if "Page' object has no attribute 'status'" in str(e):
+            print("The exception 'Page' object has no attribute 'status' occurred. Continuing without closing the browser.")
+        else:
+            print(f'Error in main(): {e}')
+            proxy_new, headers_new = RotateUserAgent() # Retry the process with a new user agent
+            await browser.close()
+            print("Retrying with new Proxy and Headers")
+            await main(URL_LINK, proxy_new, headers_new)
             
     finally:        
         await asyncio.sleep(random.randint(50,100)) # Random sleep time to avoid detection
@@ -102,6 +114,5 @@ async def MainWrapper():
     URL_LINK = 'https://www.zillow.com/homedetails/705-Puesta-Del-Sol-Plz-Indialantic-FL-32903/43474044_zpid/' # Once functions are created, this will link to whatever specific Zillow webpage we want to scrape
     proxy, headers = RotateUserAgent()
     await asyncio.gather(main(URL_LINK, proxy, headers), TestProxies(URL_LINK))
-
             
 asyncio.run(MainWrapper())
