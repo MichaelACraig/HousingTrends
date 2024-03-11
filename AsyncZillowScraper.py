@@ -1,4 +1,4 @@
-import itertools, asyncio, random, time
+import itertools, asyncio, random, time, httpx
 from pyppeteer import launch
 from utils import CHROMIUM_PATH
 '''
@@ -40,6 +40,11 @@ def GetRandomProxy(): # Get all working proxies from the working_proxies.txt fil
         proxy = f.read().splitlines()
     return random.choice(proxy)
 
+def WriteProxy(proxy): # Writes a working proxy to the working_proxies.txt file
+
+    with open('working_proxies.txt', 'a') as f:
+        f.write(proxy + '\n')
+
 def RotateUserAgent(): # Rotates through User Agents by swapping proxies and headers; Returns a working proxy and random header
     
     headers = RotateHeaders() # Retrieve a random header
@@ -47,47 +52,56 @@ def RotateUserAgent(): # Rotates through User Agents by swapping proxies and hea
 
     return proxy, headers
 
+def SolveCaptcha(): # Function to solve captcha
+    pass
+
+async def TestProxies(URL_LINK): #Queues up proxy to be used in main() function. Runs along side main()
+    while True:
+        proxy = GetRandomProxy()
+        proxy = f'socks5://{proxy}'
+
+        try:
+            async with httpx.AsyncClient(proxies = {"http://": proxy, "https://": proxy}) as client:
+                r = await client.get(URL_LINK)
+                if r.status_code == 200 or r.status_code == 403:
+                    WriteProxy(proxy)
+                    print(f'Proxy Works: {proxy} - Status: {r.status_code}')
+        except Exception as e:
+            print(f'Proxy: {proxy} failed! Status: {e}\n Retrying with new proxy...')
+
+        await asyncio.sleep(random.randint(1,5)) # Test new proxy every 1-5 seconds    
+
 async def main(URL_LINK, proxy, headers): # Main function to run the scraper, will take in all necessary parameters
-    proxySOCKS5 = 'socks5://' + proxy
-    proxyHTTPS = 'https://' + proxy
+    proxy = 'socks5://' + proxy
+    
     try: # Pass as SOCKS5 proxy first, then as HTTP proxy if SOCKS5 fails
         browser = await launch({'headless': False,
                                 'executablePath': CHROMIUM_PATH,
                                 'args':[
-                                    '--proxy-server=' + proxySOCKS5 ]})
+                                    '--proxy-server=' + proxy]})
         
         url = await browser.newPage()
         await url.setExtraHTTPHeaders(headers)
         await url.goto(URL_LINK)
+
         print("Success with SOCKS5 Proxy/Header Combo")
+        SolveCaptcha() # Function to solve captcha
 
     except Exception as e:
-        print(f'Error in main() with SOCKS5: {e}')
+        print(f'Error in main(): {e}')
+        proxy_new, headers_new = RotateUserAgent() # Retry the process with a new user agent
         await browser.close()
-        try: # Retry the process with as HTTPS
-            print('Trying as HTTPS Proxy...')
-            browser = await launch({'headless': False,
-                                'executablePath': CHROMIUM_PATH,
-                                'args':[
-                                    '--proxy-server=' + proxyHTTPS ]})
-        
-            url = await browser.newPage()
-            await url.setExtraHTTPHeaders(headers)
-            await url.goto(URL_LINK)
-            print("Success with HTTPS Proxy/Header Combo")
-
-        except Exception as e:
-            print(f'Error in main() with HTTPS: {e}')
-            proxy_new, headers_new = RotateUserAgent() # Retry the process with a new user agent
-            await browser.close()
-            print("Retrying with new Proxy and Headers")
-            await main(URL_LINK, proxy_new, headers_new)
-
+        print("Retrying with new Proxy and Headers")
+        await main(URL_LINK, proxy_new, headers_new)
+            
     finally:        
-        await asyncio.sleep(random.randint(3,5)) # Random sleep time to avoid detection
+        await asyncio.sleep(random.randint(50,100)) # Random sleep time to avoid detection
         await browser.close()    
 
-URL_LINK = 'https://webscraper.io/test-sites/e-commerce/allinone' # Once functions are created, this will link to whatever specific Zillow webpage we want to scrape
-proxy, headers = RotateUserAgent()
+async def MainWrapper():
+    URL_LINK = 'https://www.zillow.com/homedetails/705-Puesta-Del-Sol-Plz-Indialantic-FL-32903/43474044_zpid/' # Once functions are created, this will link to whatever specific Zillow webpage we want to scrape
+    proxy, headers = RotateUserAgent()
+    await asyncio.gather(main(URL_LINK, proxy, headers), TestProxies(URL_LINK))
 
-asyncio.run(main(URL_LINK, proxy, headers))
+            
+asyncio.run(MainWrapper())

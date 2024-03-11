@@ -44,7 +44,7 @@ async def scrape_properties(urls: List[str]):
 
 async def run():
     data = await scrape_properties(
-            ["https://www.zillow.com/homedetails/1625-E-13th-St-APT-3K-Brooklyn-NY-11229/245001606_zpid/"]
+            ["https://www.zillow.com/homedetails/705-Puesta-Del-Sol-Plz-Indialantic-FL-32903/43474044_zpid/"]
         )
     print(json.dumps(data, indent=2))
 if __name__ == "__main__":
