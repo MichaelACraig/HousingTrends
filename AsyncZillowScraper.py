@@ -40,34 +40,54 @@ def GetRandomProxy(): # Get all working proxies from the working_proxies.txt fil
         proxy = f.read().splitlines()
     return random.choice(proxy)
 
-async def RotateUserAgent(): # Rotates through User Agents by swapping proxies and headers; Returns a working proxy and random header
+def RotateUserAgent(): # Rotates through User Agents by swapping proxies and headers; Returns a working proxy and random header
     
-    headers = await RotateHeaders() # Retrieve a random header
-    proxy = await GetRandomProxy() # Retrieve a working proxy
+    headers = RotateHeaders() # Retrieve a random header
+    proxy = GetRandomProxy() # Retrieve a working proxy
 
     return proxy, headers
 
-async def main(URL_LINK, proxy, header): # Main function to run the scraper, will take in all necessary parameters
-    
-    try:
+async def main(URL_LINK, proxy, headers): # Main function to run the scraper, will take in all necessary parameters
+    proxySOCKS5 = 'socks5://' + proxy
+    proxyHTTPS = 'https://' + proxy
+    try: # Pass as SOCKS5 proxy first, then as HTTP proxy if SOCKS5 fails
         browser = await launch({'headless': False,
                                 'executablePath': CHROMIUM_PATH,
                                 'args':[
-                                    '--proxy-server=' + proxy,
-                                    ]})
-        
-        await browser.setExtraHTTPHeaders(headers)
+                                    '--proxy-server=' + proxySOCKS5 ]})
         
         url = await browser.newPage()
+        await url.setExtraHTTPHeaders(headers)
         await url.goto(URL_LINK)
+        print("Success with SOCKS5 Proxy/Header Combo")
+
     except Exception as e:
-        print(f'Error in main(): {e}')
-        # Retry the process with a new user agent
+        print(f'Error in main() with SOCKS5: {e}')
+        await browser.close()
+        try: # Retry the process with as HTTPS
+            print('Trying as HTTPS Proxy...')
+            browser = await launch({'headless': False,
+                                'executablePath': CHROMIUM_PATH,
+                                'args':[
+                                    '--proxy-server=' + proxyHTTPS ]})
+        
+            url = await browser.newPage()
+            await url.setExtraHTTPHeaders(headers)
+            await url.goto(URL_LINK)
+            print("Success with HTTPS Proxy/Header Combo")
+
+        except Exception as e:
+            print(f'Error in main() with HTTPS: {e}')
+            proxy_new, headers_new = RotateUserAgent() # Retry the process with a new user agent
+            await browser.close()
+            print("Retrying with new Proxy and Headers")
+            await main(URL_LINK, proxy_new, headers_new)
+
     finally:        
-        time.sleep(random.randint(5, 10)) # Random sleep time to avoid detection
+        await asyncio.sleep(random.randint(3,5)) # Random sleep time to avoid detection
         await browser.close()    
 
-URL_LINK = '' # Once functions are created, this will link to whatever specific Zillow webpage we want to scrape
+URL_LINK = 'https://webscraper.io/test-sites/e-commerce/allinone' # Once functions are created, this will link to whatever specific Zillow webpage we want to scrape
 proxy, headers = RotateUserAgent()
 
-asyncio.get_event_loop().run_until_complete(main(URL_LINK, proxy, headers))
+asyncio.run(main(URL_LINK, proxy, headers))
