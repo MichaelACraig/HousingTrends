@@ -8,7 +8,6 @@ NOTES:
  2. Main() should then check for CAPTCHA and solve it if necessary. Move on if solved, retry if not
  3. After access, whichever functions are created will be called to scrape the data
  4. If the page is closed, main should try to reopen it twice before moving on to the next proxy and headers
-
  
 - To Do:
  - Ask ChatGPT how I can optimize. Something about not creating/deleting a new browser instance every time I want to access a page/url sparked my interest
@@ -57,25 +56,25 @@ async def RotateHeaders(): # Rotate Headers
     return headers
 
 async def GetRandomProxy(): # Get all working proxies from the working_proxies.txt file
-    with open('working_proxies.txt', 'r') as f:
+    with open('Proxies/working_proxies.txt', 'r') as f:
         proxy = f.read().splitlines()
     return random.choice(proxy)
 
 async def GetRandomQueuedProxy(): # Retrieves a random proxies from queued_proxies.txt file; Helper for TestProxies() function
-    with open('queued_proxies.txt', 'r') as f:
+    with open('Proxies/queued_proxies.txt', 'r') as f:
         proxy = f.read().splitlines()
     return random.choice(proxy)
 
 async def WriteProxy(proxy): # Writes a working proxy to the working_proxies.txt file
-    with open('working_proxies.txt', 'a') as f:
+    with open('Proxies/working_proxies.txt', 'a') as f:
         f.write(proxy + '\n')
 
 async def RemoveProxy(proxy): # Removes a non-working proxy from queued_proxies txt file
-    with open('queued_proxies.txt', 'r') as f:
+    with open('Proxies/queued_proxies.txt', 'r') as f:
         lines = f.readlines()
         lines = [line.strip() for line in lines if line.strip() != proxy]
 
-        with open('queued_proxies.txt', 'w') as f:
+        with open('Proxies/queued_proxies.txt', 'w') as f:
             f.write('\n'.join(lines)) 
 
 async def RotateUserAgent(): # Rotates through User Agents by swapping proxies and headers; Returns a working proxy and random header
