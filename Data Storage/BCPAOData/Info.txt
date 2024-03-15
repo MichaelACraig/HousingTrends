@@ -1,1 +1,3 @@
 Data from the Brevard County Property Appraiser's Office
+
+For all zip codes, rerun script at page 950 after the first pass. This is due to a recursion error which I don't know the problem for

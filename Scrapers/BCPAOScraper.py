@@ -16,7 +16,7 @@ account url: https://www.bcpao.us/PropertySearch/#/account/(ACCOUNT NUMBER HERE)
 
 async def FetchWebpage(driver, URL): # Fetches the webpage using a headless browser w/ Selenium
     driver.get(URL)
-    await asyncio.sleep(1) # Waits for the page to load
+    await asyncio.sleep(3) # Waits for the page to load
     r = driver.page_source
     return r
 
@@ -105,19 +105,29 @@ async def ScrapeBatch(driver, zipcodes):
     await asyncio.gather(*tasks)
 
 async def main():
-    redo_bin = [[32903, 32927, 32951, 32935, 32780]] # Ran into recursion error. Fixed, but need to redo this batch later once all data is collected.
+    # Running into recursion error @ page 950. Fixed, but need to redo this batch later once all data is collected.
+    redo_bin = [[32903, 32927, 32920, 32935, 32780],
+                [32904, 32909, 32937, 32940, 32901],
+                [32953, 32926, 32905, 32952, 32796],
+                [32754, 32907, 32931, 32922, 32955],
+                [32934]
 
-    zipcodes = [ # Clump zipcodes together for Parallelization; More efficient task running in async
-    [32904, 32909, 32937, 32940, 32901],
-    [32953, 32926, 32905, 32952, 32796],
-    [32934, 32922, 32931, 32907, 32908],
-    [32754, 32955, 32976, 32920, 32948],
-    [32950, 32949, 32925, 32782, 32815],
-    [32775, 32781, 32783, 32959, 32899],
+                ] 
+    
+    do_bin =[
+    
+    
     [32902, 32906, 32911, 32910, 32919],
-    [32912, 32924, 32923, 32932, 32936],
-    [32941, 32954, 32956]
-]
+    [32912, 32924, 32923, 32932, 32936], 
+    [32941, 32954, 32956, 32976, 32948],
+    [32951, 32908]
+    
+    ]
+
+    zipcodes = [[32775, 32781, 32783, 32959, 32899],
+                [32950, 32949, 32925, 32782, 32815],
+                
+    ] # Clump zipcodes together for Parallelization; More efficient task running in async 
 
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
