@@ -1,0 +1,7 @@
+# Optimizing BCPAOScraper to access a different link: account url: https://www.bcpao.us/PropertySearch/#/account/(ACCOUNT NUMBER HERE)
+# This can access ALL instances and store it under one .csv. Also might simplify complications I'm getting with collection via zipcodes
+from utils import CHROMIUM_PATH
+from selenium import webdriver
+from bs4 import BeautifulSoup
+import pandas as pd, asyncio, random, csv
+

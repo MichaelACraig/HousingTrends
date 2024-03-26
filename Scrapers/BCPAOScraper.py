@@ -6,10 +6,7 @@ import asyncio
 import random
 import csv
 
-
-
 """
-account url: https://www.bcpao.us/PropertySearch/#/account/(ACCOUNT NUMBER HERE)
 
 - First iteration of file writing causes all the data from the first page to be written to all files; Fix later, not a big deal
 """
@@ -65,7 +62,11 @@ async def ScrapeTableData(cells, zipcode): # Helper function for CollectResultsD
             '''
             
             # Write to CSV
-            with open(f'Data Storage\\BCPAOData\\BCPAO_{zipcode}.csv', 'a', newline='') as file:
+            # Weird bug with windows storage to mac storage, fix later
+            WINDOWS_STORAGE = f'Data Storage\\BCPAOData\\BCPAO_{zipcode}.csv'
+            MAC_STORAGE = f'/Users/michaelcraig/Desktop/Projects/HousingTrends/Data Storage/BCPAOData/BCPAO_{zipcode}.csv'
+
+            with open(MAC_STORAGE, 'a', newline='') as file:
                 writer = csv.writer(file)
                 if file.tell() == 0: # If file does not exist, write headers.
                     writer.writerow(['Address', 'Account Number', 'Owner', 'Parcel ID', 'Sale Date', 'Sale Price', 'Market Value', 'Land Use Code', 'Subdivision'])
@@ -115,13 +116,10 @@ async def main():
                 ] 
     
     do_bin =[
-    
-    
     [32902, 32906, 32911, 32910, 32919],
     [32912, 32924, 32923, 32932, 32936], 
     [32941, 32954, 32956, 32976, 32948],
     [32951, 32908]
-    
     ]
 
     zipcodes = [[32775, 32781, 32783, 32959, 32899],
