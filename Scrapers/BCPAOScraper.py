@@ -7,7 +7,6 @@ import random
 import csv
 
 """
-
 - First iteration of file writing causes all the data from the first page to be written to all files; Fix later, not a big deal
 """
 

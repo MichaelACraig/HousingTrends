@@ -5,3 +5,10 @@ from selenium import webdriver
 from bs4 import BeautifulSoup
 import pandas as pd, asyncio, random, csv
 
+async def Fetch(driver, URL): # Fetches website
+    driver.get(URL)
+    await asyncio.sleep(1)
+    r = driver.page_source
+    return r
+
+
