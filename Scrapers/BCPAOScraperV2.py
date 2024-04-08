@@ -72,9 +72,13 @@ def Scrape(response): # Scrapes the data from URL
                     if layer_one.find('div', attrs={'data-bind': 'text: siteAddressFormatted'}):
                         SITE_ADDRESS = layer_one.find('div', attrs={'data-bind': 'text: siteAddressFormatted'}).text.strip()
                         continue
-                    if row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}):
-                        EXEMPTIONS = row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}).text.strip()
-                        continue     
+                    if row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}) or row.find('div',attrs={'data-bind': 'text: publicExemptions'}): # Might need an or clause for if exemptions length != 0
+                        if row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}):
+                            EXEMPTIONS = row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}).text.strip()
+                            continue
+                        else:
+                            EXEMPTIONS = row.find('div',attrs={'data-bind': 'text: publicExemptions'}).text.strip()    
+                            continue     
 
                 if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: parcelID'}, id='divDetails_Pid'):
                     PARCEL_ID = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: parcelID'}, id='divDetails_Pid').text.strip()
