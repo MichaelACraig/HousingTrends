@@ -42,8 +42,10 @@ def Scrape(response): # Scrapes the data from URL
     if first_table is not None: # If these tables exist, collect the data from them
         layer_one = soup.find('div',class_='cssDetails_Top_Details')
         rows = layer_one.find_all('div', class_='cssDetails_Top_Row')
+        for row in rows:
+            print(row.prettify())
+            print('----------------------------------------------------------------')
         # Initialize variables outside the loop
-
         OWNER = ""
         MAIL_ADDRESS = ""
         SITE_ADDRESS = ""
@@ -58,35 +60,53 @@ def Scrape(response): # Scrapes the data from URL
         DESCRIPTION = ""
 
         for row in rows:
-            layer_two = row.find('div', class_='cssDetails_Top_Cell_Data')
-            #PARCEL_ID, TAXING_DISTRICT, PROPERTY_USE, ACERAGE, SITE_CODE, PLAT_BOOK, SUBIDIVSION, DESCRIPTION are structured differently to layer_two
-            #Place them in a different layer group and check if they aren't none
-            # Check if data exists within the row and update variables accordingly
-            if layer_two:
-                if layer_two.find('div', attrs={'data-bind': 'text: publicOwners'}):
-                    OWNER = layer_two.find('div', attrs={'data-bind': 'text: publicOwners'}).text.strip()
-                if layer_two.find('div', attrs={'data-bind': 'text: mailingAddress.formatted'}):
-                    MAIL_ADDRESS = layer_two.find('div', attrs={'data-bind': 'text: mailingAddress.formatted'}).text.strip()
-                if layer_two.find('div',id ='divDetails_Top_SiteAddressContainer', class_='classNoPageScroll'):
-                    SITE_ADDRESS = layer_two.find('div',class_='cssDetails_Top_SiteAddress').text.strip()
-                if layer_two.find('div', class_='cssDetails_Top_Cell_Data', id='divDetails_Pid', attrs={'data-bind':'text: parcelID'}):
-                    PARCEL_ID = layer_two.find('div', class_='cssDetails_Top_Cell_Data', id='divDetails_Pid', attrs={'data-bind':'text: parcelID'}).text.strip()
-                if layer_two.find('div', class_='cssDetails_Top_Cell_Data', attrs={'data-bind': 'text: publicTaxDistrict'}):
-                    TAXING_DISTRICT = layer_two.find('div', class_='cssDetails_Top_Cell_Data', attrs={'data-bind': 'text: publicTaxDistrict'}).text.strip()
-                if layer_two.find('div', attrs={'data-bind':'if: exemptions().length == 0'}):
-                    EXEMPTIONS = layer_two.find('div',attrs={'data-bind':'if: exemptions().length == 0'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: publicUseCode'}):
-                    PROPERTY_USE = layer_two.find('div',attrs={'data-bind':'text: publicUseCode'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: acreage'}):
-                    ACERAGE = layer_two.find('div',attrs={'data-bind':'text: acreage'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: siteCodeDesc'}):
-                    SITE_CODE = layer_two.find('div',attrs={'data-bind':'text: siteCodeDesc'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: platBookPage'}):
-                    PLAT_BOOK = layer_two.find('div',attrs={'data-bind':'text: platBookPage'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: subdivisionName'}):
-                    SUBDIVISION = layer_two.find('div',attrs={'data-bind':'text: subdivisionName'}).text.strip()
-                if layer_two.find('div',attrs={'data-bind':'text: legalDescription'}):
-                    DESCRIPTION = layer_two.find('div',attrs={'data-bind':'text: legalDescription'}).text.strip()
+                layer_one = row.find('div',class_='cssDetails_Top_Cell_Data')
+
+                if layer_one:
+                    if layer_one.find('div', attrs={'data-bind': 'text: publicOwners'}):
+                        OWNER = layer_one.find('div', attrs={'data-bind': 'text: publicOwners'}).text.strip()
+                        continue
+                    if layer_one.find('div', attrs={'data-bind': 'text: mailingAddress.formatted'}):
+                        MAIL_ADDRESS = layer_one.find('div', attrs={'data-bind': 'text: mailingAddress.formatted'}).text.strip()
+                        continue
+                    if layer_one.find('div', attrs={'data-bind': 'text: siteAddressFormatted'}):
+                        SITE_ADDRESS = layer_one.find('div', attrs={'data-bind': 'text: siteAddressFormatted'}).text.strip()
+                        continue
+                    if row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}):
+                        EXEMPTIONS = row.find('div', attrs={'data-bind':'if: exemptions().length == 0'}).text.strip()
+                        continue     
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: parcelID'}, id='divDetails_Pid'):
+                    PARCEL_ID = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: parcelID'}, id='divDetails_Pid').text.strip()
+                    continue
+
+                if row.find('div', class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: publicTaxDistrict'}):
+                    TAXING_DISTRICT = row.find('div', class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: publicTaxDistrict'}).text.strip()
+                    continue
+                    
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: publicUseCode'}):
+                    PROPERTY_USE = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: publicUseCode'}).text.strip()
+                    continue
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: acerage'}):
+                    ACERAGE = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: acerage'}).text.strip()
+                    continue                
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: siteCodeDesc'}):
+                    SITE_CODE = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: siteCodeDesc'}).text.strip()
+                    continue
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: platBookPage'}):
+                    PLAT_BOOK = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: platBookPage'}).text.strip()
+                    continue
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: subdivisionName'}):
+                    SUBDIVISION = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: subdivisionName'}).text.strip()
+                    continue
+
+                if row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: legalDescription'}):
+                    SUBDIVISION = row.find('div',class_='cssDetails_Top_Cell_Data', attrs={'data-bind':'text: legalDescription'}).text.strip()
+                    continue                
 
         print("OWNER:", OWNER)
         print("SITE_ADDRESS:", SITE_ADDRESS)
