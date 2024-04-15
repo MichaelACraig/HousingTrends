@@ -3,13 +3,10 @@
 
 '''
 Notes:
- - Create in async to reduce overall runtime of the program; we have over 300k instances to go through, if we can run 10 batches, good, but 5 is fine.
-   ~ Create a multiple variables based off a single variable so it updates all instances correctly when running. Might need to be recrusive? Unsure.
+ - Scraper is complete
 
- - Scraper is based off of this URL: https://www.bcpao.us/PropertySearch/#/account/(ACCOUNT NUMBER HERE)
-    ~ Starts at 2000001. Ends at 3034724
-
- - Cannot use an AI Agent via OpenAI to scrape data; Too many tokens. 1.034723 Million Properties which converts a token a property
+ Possible optimizations to run after first runtime:
+    - Creating batches to track progress
 '''
 from utils import CHROMIUM_PATH
 from selenium import webdriver
@@ -119,6 +116,8 @@ async def Scrape(response, WINDOWS_DIR_ONE, WINDOWS_DIR_TWO): # Scrapes the data
             MARKETVAL_2022 = second_table.find('td', attrs={'data-bind': 'text: marketVal1'}).text.strip()
             MARKETVAL_2023 = second_table.find('td', attrs={'data-bind': 'text: marketVal2'}).text.strip()
 
+            '''
+            # Test Prints
             print(OWNER)
             print(MAIL_ADDRESS)
             print(SITE_ADDRESS)
@@ -134,7 +133,7 @@ async def Scrape(response, WINDOWS_DIR_ONE, WINDOWS_DIR_TWO): # Scrapes the data
             print(MARKETVAL_2021)
             print(MARKETVAL_2022)
             print(MARKETVAL_2023)
-             
+            '''
 
         # Write the values to .csv here
         with open(WINDOWS_DIR_ONE, 'a', newline='') as file_one:
@@ -149,15 +148,14 @@ async def Scrape(response, WINDOWS_DIR_ONE, WINDOWS_DIR_TWO): # Scrapes the data
         missing_layer_one = soup.find('div',id='divSearchDetails_Info', class_='cssSearchDetails_Panel cssPanelBorder_Top')
         missing_data = missing_layer_one.find('span', class_='spnDetailsRenum').text
         number = re.search(r'\d+', missing_data).group() # Pulls just the number from the string
+        print(f'{number} holds no structured data! Placing in missing container...')
 
         with open(WINDOWS_DIR_TWO, 'a', newline='') as file_two:
             writer_two = csv.writer(file_two)
             if file_two.tell() == 0:
                 writer_two.writerow(['ID'])
             writer_two.writerow([number])    
-
         return
-    
     return
  
 async def UpdateIDs(property_accounts):
@@ -168,41 +166,39 @@ async def UpdateIDs(property_accounts):
             property_accounts[i] = property_accounts[0] + i
     return property_accounts  
 
-async def main():
-    property_accounts = [2000001, 2000002, 2000003, 2000004, 2000005, 2000006, 2000007, 2000008, 2000009, 2000010]
+async def main(property_accounts, driver):
     WINDOWS_DIR_ONE = 'Data Storage\\BCPAOData\\BCPAO_Data.csv'
     WINDOWS_DIR_TWO = 'Data Storage\\BCPAOData\\BCPAO_Data_Missing.csv'
     MAC_DIR = '' # Fill in when writing in MAC environment
 
-    property_URLs = await PopulateURLs(property_accounts)
+    if property_accounts[0] == 3034724:
+        print("We have reached the last element. Exiting...")
+        return
+    
+    try:
+        property_URLs = await PopulateURLs(property_accounts)
+
+        for URL in property_URLs:
+            response = await FetchBrowser(driver, URL)
+            await Scrape(response, WINDOWS_DIR_ONE, WINDOWS_DIR_TWO)
+
+        new_accounts = await UpdateIDs(property_accounts)
+        await main(new_accounts, driver)
+
+    except Exception as e:
+        print(f'Error: {e}')
+        # Need exception for whenever this is wrong, maybe just move on
+
+async def main_wrapper():
+    property_accounts = [2000001, 2000002, 2000003, 2000004, 2000005, 2000006, 2000007, 2000008, 2000009, 2000010]
 
     options = webdriver.ChromeOptions()
     options.add_argument('headless')
     driver = webdriver.Chrome(options=options)
     
-    for URL in property_URLs:
-        response = await FetchBrowser(driver, URL)
-        await Scrape(response, WINDOWS_DIR_ONE, WINDOWS_DIR_TWO)
+    try:
+        await main(property_accounts, driver)
+    finally:
+        driver.quit()    
 
-    new_accounts = await UpdateIDs(property_accounts)
-
-
-async def main_wrapper():
-    await main()
-
-#asyncio.run(main_wrapper())
-
-'''----Test Environment Below----'''
-# Remove async from scrape and FetchBrowser to test
-'''
-options = webdriver.ChromeOptions()
-options.add_argument('headless')
-driver = webdriver.Chrome(options=options)
-
-URL = 'https://www.bcpao.us/PropertySearch/#/account/2000001'
-WINDOWS_DIR_ONE = 'Data Storage\\BCPAOData\\BCPAO_Data.csv'
-WINDOWS_DIR_TWO = 'Data Storage\\BCPAOData\\BCPAO_Data_Missing.csv'
-  
-response = FetchBrowser(driver, URL)
-Scrape(response)
-'''
+asyncio.run(main_wrapper())
